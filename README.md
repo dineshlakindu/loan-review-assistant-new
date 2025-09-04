@@ -16,21 +16,179 @@ Simulated external systems (mock APIs): **KYC / Credit / AML**. A LangGraph agen
 
 ---
 
-## Quickstart
+# README — Setup & Run on a New Laptop (Windows / macOS / Linux)
 
-### Requirements
-- Python **3.11+** (tested on 3.12), Git, VS Code
-- (Optional) [Ollama](https://ollama.com) running locally for LLM explanations
+This guide shows only how to **install**, **run**, and **verify** the Loan Review Assistant on a fresh machine.
 
-### 1) Clone & create venv
+---
 
-#### Windows (PowerShell)
+## 1) Prerequisites
+
+- **Python 3.10+**
+- **Git** (only needed if you plan to clone the repo)
+- **Ollama** (local LLM runtime) — install from https://ollama.com
+
+After installing Ollama, open a terminal and pull a model:
+```bash
+ollama pull llama3.2:3b
+# (or: ollama pull mistral)
+```
+
+---
+
+## 2) Get the code (choose ONE option)
+
+### Option A — Clone from GitHub
+```bash
+git clone https://github.com/tharusharanaweera/loan_review_assistant.git
+cd loan_review_assistant
+```
+
+### Option B — You ALREADY have all files locally
+If the project folder (with `api/`, `ui/`, `data/`, etc.) already exists on your laptop (e.g., copied from USB/ZIP), **open a terminal in that folder** and **start from Step 3** below.  
+> Tip: On Windows Explorer, Shift + right‑click the folder → “Open PowerShell window here”. On macOS Finder, right‑click → “New Terminal at Folder”.
+
+---
+
+## 3) Create & activate a virtual environment
+
+### Windows (PowerShell)
 ```powershell
-git clone https://github.com/dineshlakindu/loan-review-assistant.git
-cd loan-review-assistant
-
-py -3.12 -m venv .venv
-# If activation is blocked the first time:
-# Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
+python -m venv .venv
 .\.venv\Scripts\Activate.ps1
+# If activation is blocked, run this once in the SAME PowerShell:
+# Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+```
+
+### macOS / Linux / Windows (Git Bash)
+```bash
+python -m venv .venv
+source .venv/bin/activate
+```
+
+---
+
+## 4) Install dependencies
+
+```bash
 pip install -r requirements.txt
+```
+
+---
+
+## 5) Configure environment
+
+Copy the example env file and edit if needed:
+```bash
+# from the repo root
+cp .env.example .env
+```
+
+**.env (defaults are fine for local run):**
+```
+OLLAMA_URL=http://127.0.0.1:11434
+OLLAMA_MODEL=llama3.2:3b
+API_HOST=127.0.0.1
+API_PORT=8000
+```
+
+---
+
+## 6) Start Ollama (LLM server)
+
+Open a **separate terminal** and run:
+```bash
+ollama serve
+```
+Keep this running. (The API will call it at `http://127.0.0.1:11434`.)
+
+---
+
+## 7) Run the API (FastAPI)
+
+Back in your virtualenv terminal:
+```bash
+uvicorn api.main:app --host 127.0.0.1 --port 8000 --reload
+```
+
+**Check it:** open http://127.0.0.1:8000/docs in your browser.
+
+---
+
+## 8) Run the UI (Streamlit)
+
+Open a **new terminal**, activate the same venv, then:
+```bash
+streamlit run ui/app.py
+```
+
+Open the link printed in the terminal (usually http://localhost:8501).  
+Fill the form and click **Review** to see a decision + explanation.
+
+---
+
+## 9) Quick verification (optional)
+
+With the API running, send a sample request.
+
+**Windows PowerShell (one line):**
+```powershell
+curl -Method POST http://127.0.0.1:8000/graph/review -ContentType "application/json" -Body "{""applicant_id"":""CUST-001"",""amount"":1200000,""term_months"":36,""income_monthly"":150000,""debts_monthly"":60000,""employment_status"":""employed"",""credit_score"":720,""collateral_value"":1500000}"
+```
+
+**macOS/Linux/Git Bash:**
+```bash
+curl -X POST "http://127.0.0.1:8000/graph/review"   -H "Content-Type: application/json"   -d '{ "applicant_id":"CUST-001", "amount":1200000, "term_months":36, "income_monthly":150000, "debts_monthly":60000, "employment_status":"employed", "credit_score":720, "collateral_value":1500000 }'
+```
+
+You should get JSON with `decision`, `metrics`, `confidence`, and `explanation`.
+
+---
+
+## 10) Where results are logged
+
+Decisions are appended to:
+```
+data/decisions_log.csv
+```
+
+---
+
+## Troubleshooting
+
+**Ollama connection error**
+- Ensure `ollama serve` is running.
+- Confirm `OLLAMA_URL` in `.env`.
+- Pull a model: `ollama pull llama3.2:3b` (or `mistral`).
+
+**Windows venv activation blocked**
+- In the same PowerShell session:
+  ```powershell
+  Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+  ```
+- Then run `.\.venv\Scripts\Activate.ps1` again.
+
+**Port already in use**
+- API: `uvicorn api.main:app --port 8001 --reload`
+- UI: `streamlit run ui/app.py --server.port 8502`
+
+**CSV/files not found**
+- Run commands from the **repo root** so relative paths resolve.
+- Ensure `data/kyc.csv`, `data/aml.csv`, `data/customers.csv` exist.
+
+**CORS (UI cannot call API)**
+- Ensure the API is running at `127.0.0.1:8000`.
+- If you changed ports, update the UI config (if applicable).
+
+---
+
+## Stop services
+
+- Press **Ctrl+C** in each terminal to stop UI, API, and Ollama.
+- Deactivate venv:
+  - macOS/Linux/Git Bash: `deactivate`
+  - PowerShell: `deactivate`
+
+---
+
+**Done!** Whether you cloned from GitHub or **already had all files locally**, the steps above will get the API and UI running.
